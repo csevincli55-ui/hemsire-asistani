@@ -2,7 +2,6 @@ import os
 import tempfile
 import streamlit as st
 import google.generativeai as genai
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -21,7 +20,7 @@ with st.sidebar:
     st.header("⚙️ Ayarlar & Dokümanlar")
     api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password")
     st.divider()
-    uploaded_files = st.file_uploader("Ek Geçici Doküman Yükleyin (PDF/TXT)", type=["pdf", "txt"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Doküman Yükleyin (PDF/TXT)", type=["pdf", "txt"], accept_multiple_files=True)
 
 active_key = api_key.strip() if api_key else secret_key.strip()
 
@@ -30,38 +29,60 @@ if not active_key:
     st.stop()
 
 # Google API Konfigürasyonu
-os.environ["GOOGLE_API_KEY"] = active_key
 genai.configure(api_key=active_key)
 
-# Doküman Yükleme Fonksiyonu
-@st.cache_resource(show_spinner="Dokümanlar taranıyor ve indeksleniyor...")
-def load_data_and_create_index(_files):
-    documents = []
+# Metin Çıkarma ve Birleştirme Fonksiyonu (PyPDF ve yerel okuma)
+@st.cache_resource(show_spinner="Dokümanlar okunuyor...")
+def load_all_documents(_files):
+    all_text = ""
     
+    # 1. GitHub 'data' klasöründeki dosyaları oku
     if os.path.exists("data"):
-        try:
-            documents.extend(SimpleDirectoryReader("data").load_data())
-        except Exception as e:
-            st.error(f"Data klasörü hatası: {e}")
+        for filename in os.listdir("data"):
+            file_path = os.path.join("data", filename)
+            if filename.endswith(".txt"):
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        all_text += f"\n\n--- Dosya: {filename} ---\n" + f.read()
+                except Exception:
+                    pass
+            elif filename.endswith(".pdf"):
+                try:
+                    import pypdf
+                    reader = pypdf.PdfReader(file_path)
+                    pdf_content = "".join([page.extract_text() or "" for page in reader.pages])
+                    all_text += f"\n\n--- Dosya: {filename} ---\n" + pdf_content
+                except Exception:
+                    pass
 
+    # 2. Sol menüden yüklenen geçici dosyaları oku
     if _files:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            for file in _files:
-                temp_path = os.path.join(temp_dir, file.name)
-                with open(temp_path, "wb") as f:
-                    f.write(file.getvalue())
-            documents.extend(SimpleDirectoryReader(temp_dir).load_data())
+        for file in _files:
+            if file.name.endswith(".txt"):
+                try:
+                    content = file.getvalue().decode("utf-8")
+                    all_text += f"\n\n--- Yüklenen Dosya: {file.name} ---\n" + content
+                except Exception:
+                    pass
+            elif file.name.endswith(".pdf"):
+                try:
+                    import pypdf
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                        tmp.write(file.getvalue())
+                        tmp_path = tmp.name
+                    reader = pypdf.PdfReader(tmp_path)
+                    pdf_content = "".join([page.extract_text() or "" for page in reader.pages])
+                    all_text += f"\n\n--- Yüklenen Dosya: {file.name} ---\n" + pdf_content
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
 
-    if not documents:
-        return None
+    return all_text
 
-    return VectorStoreIndex.from_documents(documents)
+document_corpus = load_all_documents(uploaded_files)
 
-# İndeksleme
-index = load_data_and_create_index(uploaded_files)
-
-if index is None:
-    st.info("ℹ️ Lütfen GitHub `data` klasörüne doküman ekleyin veya sol menüden dosya yükleyin.")
+if not document_corpus.strip():
+    st.info("ℹ️ Lütfen GitHub `data` klasörüne doküman ekleyin veya sol menüden PDF/TXT dosyası yükleyin.")
 else:
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -76,20 +97,14 @@ else:
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            # Retriever ile dokümanlardan ilgili kısımları bulma
-            retriever = index.as_retriever(similarity_top_k=3)
-            nodes = retriever.retrieve(prompt)
-            
-            context_text = "\n\n".join([node.get_content() for node in nodes])
-            
-            # Doğrudan Gemini ile güvenli yanıt üretme
             gemini_model = genai.GenerativeModel("gemini-1.5-flash")
-            full_prompt = f"""Sen profesyonel bir hemşire asistanısın. Aşağıdaki klinik dokümanlara dayanarak soruyu yanıtla. Eğer bilgi dokümanlarda yoksa bunu belirt.
+            
+            full_prompt = f"""Sen profesyonel bir klinik hemşire asistanısın. Aşağıda sağlanan klinik dokümanlardaki bilgilere dayanarak kullanıcının sorusunu net, doğru ve detaylı bir şekilde yanıtla. 
 
 Klinik Dokümanlar:
-{context_text}
+{document_corpus}
 
-Soru: {prompt}
+Kullanıcı Sorusu: {prompt}
 Yanıt:"""
 
             response = gemini_model.generate_content(full_prompt, stream=True)
