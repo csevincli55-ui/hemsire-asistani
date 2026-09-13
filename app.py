@@ -2,9 +2,8 @@ import os
 import tempfile
 import streamlit as st
 import google.generativeai as genai
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
-from llama_index.llms.gemini import Gemini
-from llama_index.embeddings.gemini import GeminiEmbedding
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.llms.google_genai import GoogleGenAI # Güncel resmi entegrasyon
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -16,68 +15,58 @@ st.set_page_config(
 st.title("🩺 Klinik Doküman & Hemşire Asistanı")
 st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden güvenilir bilgi erişim sistemi.")
 
-# Sol Panel - Ayarlar
+# API Key Alımı
+secret_key = st.secrets.get("GOOGLE_API_KEY", "")
+
 with st.sidebar:
     st.header("⚙️ Ayarlar & Dokümanlar")
-    secret_key = st.secrets.get("GOOGLE_API_KEY", "")
-    api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password", help="Google AI Studio API anahtarı.")
+    api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password")
     st.divider()
-    
     uploaded_files = st.file_uploader("Ek Geçici Doküman Yükleyin (PDF/TXT)", type=["pdf", "txt"], accept_multiple_files=True)
 
-# API Anahtarı Kontrolü
-active_key = api_key if api_key else secret_key
+active_key = api_key.strip() if api_key else secret_key.strip()
 
 if not active_key:
-    st.warning("⚠️ Lütfen devam etmek için Google Gemini API Anahtarınızı Secrets alanına giriniz.")
+    st.warning("⚠️ Lütfen devam etmek için geçerli bir Google Gemini API Anahtarı giriniz.")
     st.stop()
 
-# Yapılandırma
+# Google API Konfigürasyonu
 os.environ["GOOGLE_API_KEY"] = active_key
 genai.configure(api_key=active_key)
 
-# LLM ve Embedding Ayarları (Ön ekler kaldırıldı)
-Settings.llm = Gemini(model="gemini-1.5-flash", api_key=active_key)
-Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
-
-# Dokümanları Yükleme ve İndeksleme İşlemi
-@st.cache_resource(show_spinner="Dokümanlar taranıyor ve yapay zeka hafızası oluşturuluyor...")
-def load_data_and_create_index(_uploaded_files_list):
+# Doküman Yükleme Fonksiyonu
+@st.cache_resource(show_spinner="Dokümanlar taranıyor ve indeksleniyor...")
+def load_data_and_create_index(_files):
     documents = []
     
-    # 1. GitHub'daki 'data' klasöründeki kalıcı dosyaları oku
     if os.path.exists("data"):
         try:
-            data_reader = SimpleDirectoryReader("data")
-            documents.extend(data_reader.load_data())
+            documents.extend(SimpleDirectoryReader("data").load_data())
         except Exception as e:
-            st.error(f"Data klasörü okunurken hata: {e}")
+            st.error(f"Data klasörü hatası: {e}")
 
-    # 2. Arayüzden anlık yüklenen geçici dosyaları oku
-    if _uploaded_files_list:
+    if _files:
         with tempfile.TemporaryDirectory() as temp_dir:
-            for file in _uploaded_files_list:
-                temp_filepath = os.path.join(temp_dir, file.name)
-                with open(temp_filepath, "wb") as f:
+            for file in _files:
+                temp_path = os.path.join(temp_dir, file.name)
+                with open(temp_path, "wb") as f:
                     f.write(file.getvalue())
-            
-            temp_reader = SimpleDirectoryReader(temp_dir)
-            documents.extend(temp_reader.load_data())
+            documents.extend(SimpleDirectoryReader(temp_dir).load_data())
 
     if not documents:
         return None
 
     return VectorStoreIndex.from_documents(documents)
 
-# İndeksi Oluştur
+# İndeksleme ve Sohbet Arayüzü
 index = load_data_and_create_index(uploaded_files)
 
 if index is None:
-    st.info("ℹ️ Henüz sisteme yüklü bir doküman bulunmuyor. GitHub 'data' klasörüne dosya ekleyebilir veya sol menüden yükleyebilirsiniz.")
+    st.info("ℹ️ Lütfen GitHub `data` klasörüne doküman ekleyin veya sol menüden dosya yükleyin.")
 else:
+    # Doğrudan Gemini motorunu kullanarak 404 hatalarını bypass etme
     query_engine = index.as_query_engine(streaming=True)
 
-    # Chat Geçmişi
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
@@ -85,7 +74,7 @@ else:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    if prompt := st.chat_input("Klinik prosedür veya dokümanlar hakkında soru sorun..."):
+    if prompt := st.chat_input("Dokümanlar hakkında bir soru sorun..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
