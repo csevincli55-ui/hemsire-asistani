@@ -2,9 +2,10 @@ import os
 import tempfile
 import streamlit as st
 import google.generativeai as genai
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
-from llama_index.llms.gemini import Gemini
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.embeddings.gemini import GeminiEmbedding
+from llama_index.core.llms import LLM, CompletionResponse, CompletionResponseGen, LLMMetadata
+from typing import Any, Optional
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -35,8 +36,35 @@ if not active_key:
 os.environ["GOOGLE_API_KEY"] = active_key
 genai.configure(api_key=active_key)
 
-# LLM ve Embedding Ayarları
-Settings.llm = Gemini(model="gemini-1.5-flash", api_key=active_key)
+# Özel Wrapper: Google GenAI doğrudan kullanarak LlamaIndex model doğrulama hatalarını bypass eder
+class CustomGeminiLLM(LLM):
+    model_name: str = "gemini-1.5-flash"
+    api_key: str = ""
+
+    def __init__(self, model_name: str = "gemini-1.5-flash", api_key: str = ""):
+        super().__init__()
+        self.model_name = model_name
+        self.api_key = api_key
+
+    @property
+    def metadata(self) -> LLMMetadata:
+        return LLMMetadata(model_name=self.model_name)
+
+    def complete(self, prompt: str, **kwargs: Any) -> CompletionResponse:
+        model = genai.GenerativeModel(self.model_name)
+        response = model.generate_content(prompt)
+        return CompletionResponse(text=response.text)
+
+    def stream_complete(self, prompt: str, **kwargs: Any) -> CompletionResponseGen:
+        model = genai.GenerativeModel(self.model_name)
+        response = model.generate_content(prompt, stream=True)
+        def gen():
+            for chunk in response:
+                yield CompletionResponse(text=chunk.text)
+        return gen()
+
+# Ayarları Tanımlama (Doğrulama adımı atlanır, 404 hatası alınmaz)
+Settings.llm = CustomGeminiLLM(model_name="gemini-1.5-flash", api_key=active_key)
 Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Doküman Yükleme Fonksiyonu
@@ -69,7 +97,6 @@ index = load_data_and_create_index(uploaded_files)
 if index is None:
     st.info("ℹ️ Lütfen GitHub `data` klasörüne doküman ekleyin veya sol menüden dosya yükleyin.")
 else:
-    # Doğrudan Gemini motorunu kullanarak 404 hatalarını bypass etme
     query_engine = index.as_query_engine(streaming=True)
 
     if "messages" not in st.session_state:
