@@ -33,8 +33,8 @@ if not active_key:
 
 os.environ["GOOGLE_API_KEY"] = active_key
 
-# Gemini LLM ve Embedding Ayarları
-Settings.llm = Gemini(model="models/gemini-2.0-flash", api_key=active_key)
+# Gemini LLM ve Embedding Ayarları (Tam Kararlı Sürüm)
+Settings.llm = Gemini(model_name="models/gemini-1.5-flash", api_key=active_key)
 Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Dokümanları Yükleme ve İndeksleme İşlemi
