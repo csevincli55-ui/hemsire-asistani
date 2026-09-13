@@ -1,6 +1,7 @@
 import os
 import tempfile
 import streamlit as st
+import google.generativeai as genai
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.llms.gemini import Gemini
 from llama_index.embeddings.gemini import GeminiEmbedding
@@ -13,13 +14,13 @@ st.set_page_config(
 )
 
 st.title("🩺 Klinik Doküman & Hemşire Asistanı")
-st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden güvenilir bilgi erişim sistemi (Ücretsiz Gemini Modeli).")
+st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden güvenilir bilgi erişim sistemi.")
 
 # Sol Panel - Ayarlar
 with st.sidebar:
     st.header("⚙️ Ayarlar & Dokümanlar")
     secret_key = st.secrets.get("GOOGLE_API_KEY", "")
-    api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password", help="Google AI Studio'dan aldığınız API anahtarını giriniz.")
+    api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password", help="Google AI Studio API anahtarı.")
     st.divider()
     
     uploaded_files = st.file_uploader("Ek Geçici Doküman Yükleyin (PDF/TXT)", type=["pdf", "txt"], accept_multiple_files=True)
@@ -31,12 +32,18 @@ if not active_key:
     st.warning("⚠️ Lütfen devam etmek için Google Gemini API Anahtarınızı Secrets alanına giriniz.")
     st.stop()
 
-# Ortam değişkenini ayarlayalım
+# Google Generative AI ve Ortam Değişkenlerini Doğrudan Yapılandırma
 os.environ["GOOGLE_API_KEY"] = active_key
+genai.configure(api_key=active_key)
 
 # Gemini LLM ve Embedding Ayarları
-Settings.llm = Gemini(model="models/gemini-1.5-flash", api_key=active_key)
-Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
+try:
+    Settings.llm = Gemini(model_name="models/gemini-1.5-flash", api_key=active_key)
+    Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
+except Exception as e:
+    # Alternatif model formatı denemesi
+    Settings.llm = Gemini(model_name="models/gemini-2.0-flash", api_key=active_key)
+    Settings.embed_model = GeminiEmbedding(model_name="models/embedding-001", api_key=active_key)
 
 # Dokümanları Yükleme ve İndeksleme İşlemi
 @st.cache_resource(show_spinner="Dokümanlar taranıyor ve yapay zeka hafızası oluşturuluyor...")
