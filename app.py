@@ -106,13 +106,22 @@ Klinik Dokümanlar:
 Kullanıcı Sorusu: {prompt}
 Yanıt:"""
 
-                # Yeni nesil SDK ile akışlı (streaming) yanıt üretme
+                # Google'ın hatada önerdiği en güncel kararlı model adı
                 response = client.models.generate_content_stream(
-                    model='gemini-2.0-flash',
+                    model='gemini-2.5-flash',
                     contents=full_prompt,
                 )
                 
                 response_text = st.write_stream(chunk.text for chunk in response)
                 st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
             except Exception as e:
-                st.error(f"Yanıt oluşturulurken bir hata oluştu: {e}")
+                # Alternatif olarak gemini-3.6-flash dener
+                try:
+                    response = client.models.generate_content_stream(
+                        model='gemini-3.6-flash',
+                        contents=full_prompt,
+                    )
+                    response_text = st.write_stream(chunk.text for chunk in response)
+                    st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
+                except Exception as err:
+                    st.error(f"Yanıt oluşturulurken bir hata oluştu: {err}")
