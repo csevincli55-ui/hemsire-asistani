@@ -6,6 +6,7 @@ from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.embeddings.gemini import GeminiEmbedding
 from llama_index.core.llms import LLM, CompletionResponse, CompletionResponseGen, LLMMetadata
 from typing import Any, Optional
+from pydantic import Field
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -36,15 +37,9 @@ if not active_key:
 os.environ["GOOGLE_API_KEY"] = active_key
 genai.configure(api_key=active_key)
 
-# Özel Wrapper: Google GenAI doğrudan kullanarak LlamaIndex model doğrulama hatalarını bypass eder
+# Pydantic Uyumlu Özel Wrapper
 class CustomGeminiLLM(LLM):
-    model_name: str = "gemini-1.5-flash"
-    api_key: str = ""
-
-    def __init__(self, model_name: str = "gemini-1.5-flash", api_key: str = ""):
-        super().__init__()
-        self.model_name = model_name
-        self.api_key = api_key
+    model_name: str = Field(default="gemini-1.5-flash")
 
     @property
     def metadata(self) -> LLMMetadata:
@@ -63,8 +58,8 @@ class CustomGeminiLLM(LLM):
                 yield CompletionResponse(text=chunk.text)
         return gen()
 
-# Ayarları Tanımlama (Doğrulama adımı atlanır, 404 hatası alınmaz)
-Settings.llm = CustomGeminiLLM(model_name="gemini-1.5-flash", api_key=active_key)
+# Ayarları Tanımlama
+Settings.llm = CustomGeminiLLM(model_name="gemini-1.5-flash")
 Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Doküman Yükleme Fonksiyonu
