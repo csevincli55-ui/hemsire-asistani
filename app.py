@@ -31,10 +31,11 @@ if not active_key:
     st.warning("⚠️ Lütfen devam etmek için Google Gemini API Anahtarınızı Secrets alanına giriniz.")
     st.stop()
 
+# Ortam değişkenini ayarlayalım
 os.environ["GOOGLE_API_KEY"] = active_key
 
-# Gemini LLM ve Embedding Ayarları (Tam Kararlı Sürüm)
-Settings.llm = Gemini(model_name="models/gemini-1.5-flash", api_key=active_key)
+# Gemini LLM ve Embedding Ayarları
+Settings.llm = Gemini(model="models/gemini-1.5-flash", api_key=active_key)
 Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Dokümanları Yükleme ve İndeksleme İşlemi
