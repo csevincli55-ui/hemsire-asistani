@@ -1,7 +1,6 @@
 streamlit
-llama-index
 llama-index-core
-llama-index-llms-openai
-llama-index-embeddings-openai
-python-pptx
+llama-index-llms-gemini
+llama-index-embeddings-gemini
+llama-index-readers-file
 pypdf
