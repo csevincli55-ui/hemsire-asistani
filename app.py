@@ -19,7 +19,8 @@ st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzeri
 # Sol Panel - Ayarlar ve Dosya Yükleme
 with st.sidebar:
     st.header("⚙️ Ayarlar & Dokümanlar")
-    api_key = st.text_input("OpenAI API Key", type="password", help="API anahtarınızı giriniz.")
+    secret_key = st.secrets.get("OPENAI_API_KEY", "")
+    api_key = st.text_input("OpenAI API Key", value=secret_key, type="password", help="API anahtarınızı giriniz.")
     st.divider()
     
     uploaded_files = st.file_uploader(
