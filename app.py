@@ -32,22 +32,17 @@ if not active_key:
     st.warning("⚠️ Lütfen devam etmek için Google Gemini API Anahtarınızı Secrets alanına giriniz.")
     st.stop()
 
-# Google Generative AI ve Ortam Değişkenlerini Doğrudan Yapılandırma
+# Yapılandırma
 os.environ["GOOGLE_API_KEY"] = active_key
 genai.configure(api_key=active_key)
 
-# Gemini LLM ve Embedding Ayarları
-try:
-    Settings.llm = Gemini(model_name="models/gemini-1.5-flash", api_key=active_key)
-    Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
-except Exception as e:
-    # Alternatif model formatı denemesi
-    Settings.llm = Gemini(model_name="models/gemini-2.0-flash", api_key=active_key)
-    Settings.embed_model = GeminiEmbedding(model_name="models/embedding-001", api_key=active_key)
+# LLM ve Embedding Ayarları
+Settings.llm = Gemini(model="models/gemini-1.5-flash", api_key=active_key)
+Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Dokümanları Yükleme ve İndeksleme İşlemi
 @st.cache_resource(show_spinner="Dokümanlar taranıyor ve yapay zeka hafızası oluşturuluyor...")
-def load_data_and_create_index(uploaded_files_list):
+def load_data_and_create_index(_uploaded_files_list):
     documents = []
     
     # 1. GitHub'daki 'data' klasöründeki kalıcı dosyaları oku
@@ -55,13 +50,13 @@ def load_data_and_create_index(uploaded_files_list):
         try:
             data_reader = SimpleDirectoryReader("data")
             documents.extend(data_reader.load_data())
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"Data klasörü okunurken hata: {e}")
 
     # 2. Arayüzden anlık yüklenen geçici dosyaları oku
-    if uploaded_files_list:
+    if _uploaded_files_list:
         with tempfile.TemporaryDirectory() as temp_dir:
-            for file in uploaded_files_list:
+            for file in _uploaded_files_list:
                 temp_filepath = os.path.join(temp_dir, file.name)
                 with open(temp_filepath, "wb") as f:
                     f.write(file.getvalue())
