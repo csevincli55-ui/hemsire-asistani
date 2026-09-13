@@ -2,6 +2,7 @@ import os
 import tempfile
 import streamlit as st
 import google.generativeai as genai
+from google.api_core.client_options import ClientOptions
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -28,8 +29,9 @@ if not active_key:
     st.warning("⚠️ Lütfen devam etmek için geçerli bir Google Gemini API Anahtarı giriniz.")
     st.stop()
 
-# Google API Konfigürasyonu
-genai.configure(api_key=active_key)
+# Google API Konfigürasyonu (v1beta hatasını önlemek için standart endpoint)
+client_options = ClientOptions(api_endpoint="generativelanguage.googleapis.com")
+genai.configure(api_key=active_key, client_options=client_options)
 
 # Metin Çıkarma ve Birleştirme Fonksiyonu
 @st.cache_resource(show_spinner="Dokümanlar okunuyor...")
@@ -98,8 +100,8 @@ else:
 
         with st.chat_message("assistant"):
             try:
-                # Doğrudan en kararlı ve standart metin modelini kullanıyoruz
-                gemini_model = genai.GenerativeModel("gemini-pro")
+                # Güncel ve kararlı model adı kullanılıyor
+                gemini_model = genai.GenerativeModel("models/gemini-1.5-flash")
                 
                 full_prompt = f"""Sen profesyonel bir klinik hemşire asistanısın. Aşağıda sağlanan klinik dokümanlardaki bilgilere dayanarak kullanıcının sorusunu net, doğru ve detaylı bir şekilde yanıtla. 
 
