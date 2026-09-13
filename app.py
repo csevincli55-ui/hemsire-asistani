@@ -3,7 +3,8 @@ import tempfile
 import streamlit as st
 import google.generativeai as genai
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
-from llama_index.llms.google_genai import GoogleGenAI # Güncel resmi entegrasyon
+from llama_index.llms.gemini import Gemini
+from llama_index.embeddings.gemini import GeminiEmbedding
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -33,6 +34,10 @@ if not active_key:
 # Google API Konfigürasyonu
 os.environ["GOOGLE_API_KEY"] = active_key
 genai.configure(api_key=active_key)
+
+# LLM ve Embedding Ayarları
+Settings.llm = Gemini(model="gemini-1.5-flash", api_key=active_key)
+Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Doküman Yükleme Fonksiyonu
 @st.cache_resource(show_spinner="Dokümanlar taranıyor ve indeksleniyor...")
