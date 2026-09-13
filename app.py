@@ -31,7 +31,7 @@ if not active_key:
 # Google API Konfigürasyonu
 genai.configure(api_key=active_key)
 
-# Metin Çıkarma ve Birleştirme Fonksiyonu (PyPDF ve yerel okuma)
+# Metin Çıkarma ve Birleştirme Fonksiyonu
 @st.cache_resource(show_spinner="Dokümanlar okunuyor...")
 def load_all_documents(_files):
     all_text = ""
@@ -97,6 +97,7 @@ else:
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
+            # En uyumlu model seçimi (404 hatasını önlemek için genel model adı)
             gemini_model = genai.GenerativeModel("gemini-1.5-flash")
             
             full_prompt = f"""Sen profesyonel bir klinik hemşire asistanısın. Aşağıda sağlanan klinik dokümanlardaki bilgilere dayanarak kullanıcının sorusunu net, doğru ve detaylı bir şekilde yanıtla. 
@@ -107,7 +108,16 @@ Klinik Dokümanlar:
 Kullanıcı Sorusu: {prompt}
 Yanıt:"""
 
-            response = gemini_model.generate_content(full_prompt, stream=True)
-            response_text = st.write_stream(chunk.text for chunk in response)
-            
-            st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
+            try:
+                response = gemini_model.generate_content(full_prompt, stream=True)
+                response_text = st.write_stream(chunk.text for chunk in response)
+                st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
+            except Exception as e:
+                # Alternatif olarak gemini-pro modelini dener
+                try:
+                    fallback_model = genai.GenerativeModel("gemini-1.5-pro")
+                    response = fallback_model.generate_content(full_prompt, stream=True)
+                    response_text = st.write_stream(chunk.text for chunk in response)
+                    st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
+                except Exception as err:
+                    st.error(f"Model yanıt üretirken hata oluştu: {err}")
