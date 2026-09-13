@@ -2,8 +2,8 @@ import os
 import tempfile
 import streamlit as st
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
-from llama_index.llms.openai import OpenAI
-from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.gemini import Gemini
+from llama_index.embeddings.gemini import GeminiEmbedding
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -13,13 +13,13 @@ st.set_page_config(
 )
 
 st.title("🩺 Klinik Doküman & Hemşire Asistanı")
-st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden güvenilir bilgi erişim sistemi.")
+st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden güvenilir bilgi erişim sistemi (Ücretsiz Gemini Modeli).")
 
 # Sol Panel - Ayarlar
 with st.sidebar:
     st.header("⚙️ Ayarlar & Dokümanlar")
-    secret_key = st.secrets.get("OPENAI_API_KEY", "")
-    api_key = st.text_input("OpenAI API Key", value=secret_key, type="password", help="API anahtarınızı giriniz.")
+    secret_key = st.secrets.get("GOOGLE_API_KEY", "")
+    api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password", help="Google AI Studio'dan aldığınız API anahtarını giriniz.")
     st.divider()
     
     uploaded_files = st.file_uploader("Ek Geçici Doküman Yükleyin (PDF/TXT)", type=["pdf", "txt"], accept_multiple_files=True)
@@ -28,15 +28,17 @@ with st.sidebar:
 active_key = api_key if api_key else secret_key
 
 if not active_key:
-    st.warning("⚠️ Lütfen devam etmek için sol menüden OpenAI API Anahtarınızı giriniz.")
+    st.warning("⚠️ Lütfen devam etmek için Google Gemini API Anahtarınızı Secrets alanına giriniz.")
     st.stop()
 
-os.environ["OPENAI_API_KEY"] = active_key
-Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0.2)
-Settings.embed_model = OpenAIEmbedding()
+os.environ["GOOGLE_API_KEY"] = active_key
+
+# Gemini LLM ve Embedding Ayarları
+Settings.llm = Gemini(model="models/gemini-2.0-flash", api_key=active_key)
+Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Dokümanları Yükleme ve İndeksleme İşlemi
-@st.cache_resource(show_spinner="Kalıcı ve geçici dokümanlar indeksleniyor...")
+@st.cache_resource(show_spinner="Dokümanlar taranıyor ve yapay zeka hafızası oluşturuluyor...")
 def load_data_and_create_index(uploaded_files_list):
     documents = []
     
@@ -45,7 +47,7 @@ def load_data_and_create_index(uploaded_files_list):
         try:
             data_reader = SimpleDirectoryReader("data")
             documents.extend(data_reader.load_data())
-        except Exception as e:
+        except Exception:
             pass
 
     # 2. Arayüzden anlık yüklenen geçici dosyaları oku
@@ -70,7 +72,7 @@ index = load_data_and_create_index(uploaded_files)
 if index is None:
     st.info("ℹ️ Henüz sisteme yüklü bir doküman bulunmuyor. GitHub 'data' klasörüne dosya ekleyebilir veya sol menüden yükleyebilirsiniz.")
 else:
-    query_engine = index.as_query_engine()
+    query_engine = index.as_query_engine(streaming=True)
 
     # Chat Geçmişi
     if "messages" not in st.session_state:
@@ -86,7 +88,6 @@ else:
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("Dokümanlar taranıyor..."):
-                response = query_engine.query(prompt)
-                st.markdown(str(response))
-                st.session_state.messages.append({"role": "assistant", "content": str(response)})
+            streaming_response = query_engine.query(prompt)
+            response_text = st.write_stream(streaming_response.response_gen)
+            st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
