@@ -36,8 +36,8 @@ if not active_key:
 os.environ["GOOGLE_API_KEY"] = active_key
 genai.configure(api_key=active_key)
 
-# LLM ve Embedding Ayarları
-Settings.llm = Gemini(model="models/gemini-1.5-flash", api_key=active_key)
+# LLM ve Embedding Ayarları (Ön ekler kaldırıldı)
+Settings.llm = Gemini(model="gemini-1.5-flash", api_key=active_key)
 Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004", api_key=active_key)
 
 # Dokümanları Yükleme ve İndeksleme İşlemi
