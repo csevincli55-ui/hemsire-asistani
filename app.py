@@ -1,5 +1,4 @@
 import os
-import tempfile
 import streamlit as st
 from google import genai
 
@@ -17,10 +16,10 @@ st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzeri
 secret_key = st.secrets.get("GOOGLE_API_KEY", "")
 
 with st.sidebar:
-    st.header("⚙️ Ayarlar & Dokümanlar")
+    st.header("⚙️ Ayarlar")
     api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password")
     st.divider()
-    uploaded_files = st.file_uploader("Doküman Yükleyin (PDF/TXT)", type=["pdf", "txt"], accept_multiple_files=True)
+    st.info("ℹ️ Bu asistan, yalnızca GitHub deposundaki kalıcı klinik dokümanlar üzerinden yanıt vermektedir.")
 
 active_key = api_key.strip() if api_key else secret_key.strip()
 
@@ -31,12 +30,11 @@ if not active_key:
 # Yeni Nesil Google GenAI İstemcisi
 client = genai.Client(api_key=active_key)
 
-# Metin Çıkarma ve Birleştirme Fonksiyonu
-@st.cache_resource(show_spinner="Dokümanlar okunuyor...")
-def load_all_documents(_files):
+# Metin Çıkarma ve Birleştirme Fonksiyonu (Yalnızca GitHub 'data' klasörü)
+@st.cache_resource(show_spinner="Klinik dokümanlar okunuyor...")
+def load_all_documents():
     all_text = ""
     
-    # 1. GitHub 'data' klasöründeki dosyaları oku
     if os.path.exists("data"):
         for filename in os.listdir("data"):
             file_path = os.path.join("data", filename)
@@ -55,34 +53,12 @@ def load_all_documents(_files):
                 except Exception:
                     pass
 
-    # 2. Sol menüden yüklenen geçici dosyaları oku
-    if _files:
-        for file in _files:
-            if file.name.endswith(".txt"):
-                try:
-                    content = file.getvalue().decode("utf-8")
-                    all_text += f"\n\n--- Yüklenen Dosya: {file.name} ---\n" + content
-                except Exception:
-                    pass
-            elif file.name.endswith(".pdf"):
-                try:
-                    import pypdf
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                        tmp.write(file.getvalue())
-                        tmp_path = tmp.name
-                    reader = pypdf.PdfReader(tmp_path)
-                    pdf_content = "".join([page.extract_text() or "" for page in reader.pages])
-                    all_text += f"\n\n--- Yüklenen Dosya: {file.name} ---\n" + pdf_content
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
-
     return all_text
 
-document_corpus = load_all_documents(uploaded_files)
+document_corpus = load_all_documents()
 
 if not document_corpus.strip():
-    st.info("ℹ️ Lütfen GitHub `data` klasörüne doküman ekleyin veya sol menüden PDF/TXT dosyası yükleyin.")
+    st.warning("⚠️ GitHub üzerindeki `data` klasöründe okunabilir doküman bulunamadı. Lütfen depoya doküman ekleyin.")
 else:
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -106,22 +82,29 @@ Klinik Dokümanlar:
 Kullanıcı Sorusu: {prompt}
 Yanıt:"""
 
-                # Google'ın hatada önerdiği en güncel kararlı model adı
                 response = client.models.generate_content_stream(
                     model='gemini-2.5-flash',
                     contents=full_prompt,
                 )
                 
                 response_text = st.write_stream(chunk.text for chunk in response)
-                st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
+                
+                # Her cevabın altında görünecek yıldızlı uyarı
+                disclaimer = "\n\n⭐ **Uyarı:** *Bu asistan tarafından sağlanan yanıtlar yalnızca bilgilendirme amaçlıdır; klinik kararlar ve hasta bakımı için mutlaka resmi hastane protokollerine ve uzman hekim görüşüne başvurulmalıdır.*"
+                st.markdown(disclaimer)
+                
+                full_message = str(response_text) + disclaimer
+                st.session_state.messages.append({"role": "assistant", "content": full_message})
             except Exception as e:
-                # Alternatif olarak gemini-3.6-flash dener
                 try:
                     response = client.models.generate_content_stream(
                         model='gemini-3.6-flash',
                         contents=full_prompt,
                     )
                     response_text = st.write_stream(chunk.text for chunk in response)
-                    st.session_state.messages.append({"role": "assistant", "content": str(response_text)})
+                    disclaimer = "\n\n⭐ **Uyarı:** *Bu asistan tarafından sağlanan yanıtlar yalnızca bilgilendirme amaçlıdır; klinik kararlar ve hasta bakımı için mutlaka resmi hastane protokollerine ve uzman hekim görüşüne başvurulmalıdır.*"
+                    st.markdown(disclaimer)
+                    full_message = str(response_text) + disclaimer
+                    st.session_state.messages.append({"role": "assistant", "content": full_message})
                 except Exception as err:
                     st.error(f"Yanıt oluşturulurken bir hata oluştu: {err}")
