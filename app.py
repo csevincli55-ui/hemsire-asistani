@@ -10,22 +10,29 @@ st.set_page_config(
     layout="wide"
 )
 
+# Streamlit arayüzündeki sağ alt rozetleri, menüleri ve logoları gizleyen CSS
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+.stDeployButton {display:none;}
+div[data-testid="stStatusWidget"] {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 st.title("🩺 Klinik Doküman & Hemşire Asistanı")
 st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden güvenilir bilgi erişim sistemi.")
 
-# API Key Alımı
-secret_key = st.secrets.get("GOOGLE_API_KEY", "")
+# API Key'i doğrudan gizli ayarlardan (secrets) alıyoruz, ekranda kutu görünmüyor
+active_key = st.secrets.get("GOOGLE_API_KEY", "")
 
 with st.sidebar:
-    st.header("⚙️ Ayarlar")
-    api_key = st.text_input("Google Gemini API Key", value=secret_key, type="password")
-    st.divider()
+    st.header("⚙️ Bilgilendirme")
     st.info("ℹ️ Bu asistan, yalnızca GitHub deposundaki kalıcı klinik dokümanlar üzerinden yanıt vermektedir.")
 
-active_key = api_key.strip() if api_key else secret_key.strip()
-
 if not active_key:
-    st.warning("⚠️ Lütfen devam etmek için geçerli bir Google Gemini API Anahtarı giriniz.")
+    st.warning("⚠️ Lütfen Streamlit ayarlarından (Secrets) geçerli bir `GOOGLE_API_KEY` tanımlayınız.")
     st.stop()
 
 # Yeni Nesil Google GenAI İstemcisi
