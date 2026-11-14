@@ -10,21 +10,23 @@ st.set_page_config(
     layout="wide"
 )
 
-# Sol paneli (sidebar), sağ alt rozetleri ve Streamlit logolarını tamamen gizleyen CSS
+# Sağ alttaki logoları, sol paneli ve gereksiz tüm Streamlit unsurlarını gizleyen gelişmiş CSS
 hide_streamlit_style = """
 <style>
-/* Sol paneli tamamen gizle */
+/* Sol paneli ve üst ok butonunu tamamen gizle */
 [data-testid="stSidebar"] {display: none !important;}
 section[data-testid="stSidebar"] {display: none !important;}
-/* Üst sol menü açma kapama okunu gizle */
 button[kind="header"] {display: none !important;}
 
-/* Sağ alt rozetler, menüler ve logoları gizle */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-.stDeployButton {display: none;}
-div[data-testid="stStatusWidget"] {visibility: hidden;}
-[data-testid="stDecoration"] {display: none;}
+/* Sağ alttaki Streamlit rozetlerini ve logolarını gizle */
+#MainMenu {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+.stDeployButton {display: none !important;}
+div[data-testid="stStatusWidget"] {visibility: hidden !important;}
+[data-testid="stDecoration"] {display: none !important;}
+div[class*="viewerBadge"] {display: none !important;}
+iframe[data-testid="stIframe"] {display: none !important;}
+.viewerBadge_container__1QSob {display: none !important;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
