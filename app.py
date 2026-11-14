@@ -3,20 +3,28 @@ import time
 import streamlit as st
 from google import genai
 
-# Sayfa Yapılandırması
+# Sayfa Yapılandırması (Geniş ekran modu)
 st.set_page_config(
     page_title="Hemşire Asistanı Yapay Zeka",
     page_icon="🩺",
     layout="wide"
 )
 
-# Streamlit arayüzündeki sağ alt rozetleri, menüleri ve logoları gizleyen CSS
+# Sol paneli (sidebar), sağ alt rozetleri ve Streamlit logolarını tamamen gizleyen CSS
 hide_streamlit_style = """
 <style>
+/* Sol paneli tamamen gizle */
+[data-testid="stSidebar"] {display: none !important;}
+section[data-testid="stSidebar"] {display: none !important;}
+/* Üst sol menü açma kapama okunu gizle */
+button[kind="header"] {display: none !important;}
+
+/* Sağ alt rozetler, menüler ve logoları gizle */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-.stDeployButton {display:none;}
+.stDeployButton {display: none;}
 div[data-testid="stStatusWidget"] {visibility: hidden;}
+[data-testid="stDecoration"] {display: none;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -24,12 +32,8 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 st.title("🩺 Klinik Doküman & Hemşire Asistanı")
 st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden güvenilir bilgi erişim sistemi.")
 
-# API Key'i doğrudan gizli ayarlardan (secrets) alıyoruz, ekranda kutu görünmüyor
+# API Key'i doğrudan gizli ayarlardan (secrets) alıyoruz
 active_key = st.secrets.get("GOOGLE_API_KEY", "")
-
-with st.sidebar:
-    st.header("⚙️ Bilgilendirme")
-    st.info("ℹ️ Bu asistan, yalnızca GitHub deposundaki kalıcı klinik dokümanlar üzerinden yanıt vermektedir.")
 
 if not active_key:
     st.warning("⚠️ Lütfen Streamlit ayarlarından (Secrets) geçerli bir `GOOGLE_API_KEY` tanımlayınız.")
