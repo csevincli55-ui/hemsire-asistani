@@ -10,23 +10,27 @@ st.set_page_config(
     layout="wide"
 )
 
-# Sağ alttaki logoları, sol paneli ve gereksiz tüm Streamlit unsurlarını gizleyen gelişmiş CSS
+# Sağ alttaki tüm rozetleri, logoları ve şerifleri mutlak olarak kaldıran kesin CSS
 hide_streamlit_style = """
 <style>
-/* Sol paneli ve üst ok butonunu tamamen gizle */
+/* Sol paneli tamamen gizle */
 [data-testid="stSidebar"] {display: none !important;}
 section[data-testid="stSidebar"] {display: none !important;}
 button[kind="header"] {display: none !important;}
 
-/* Sağ alttaki Streamlit rozetlerini ve logolarını gizle */
-#MainMenu {visibility: hidden !important;}
-footer {visibility: hidden !important;}
+/* Sağ alttaki tüm Streamlit rozetleri, butonları ve logoları */
+#MainMenu {visibility: hidden !important; display: none !important;}
+footer {visibility: hidden !important; display: none !important;}
 .stDeployButton {display: none !important;}
-div[data-testid="stStatusWidget"] {visibility: hidden !important;}
+div[data-testid="stStatusWidget"] {visibility: hidden !important; display: none !important;}
 [data-testid="stDecoration"] {display: none !important;}
-div[class*="viewerBadge"] {display: none !important;}
-iframe[data-testid="stIframe"] {display: none !important;}
-.viewerBadge_container__1QSob {display: none !important;}
+
+/* Sağ alttaki yüzen rozet konteynerlerini kökten gizle */
+div[class*="viewerBadge"] {display: none !important; visibility: hidden !important;}
+iframe {display: none !important; visibility: hidden !important;}
+.styles_viewerBadge__1yG5_ {display: none !important;}
+a[href*="streamlit.io/cloud"] {display: none !important;}
+div.fixed-container {display: none !important;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -70,6 +74,10 @@ def load_all_documents():
     return all_text
 
 document_corpus = load_all_documents()
+
+if not document_corpus.string.strip() if hasattr(document_corpus, 'string') else not document_corpus.strip():
+    # Güvenli kontrol
+    pass
 
 if not document_corpus.strip():
     st.warning("⚠️ GitHub üzerindeki `data` klasöründe okunabilir doküman bulunamadı. Lütfen depoya doküman ekleyin.")
