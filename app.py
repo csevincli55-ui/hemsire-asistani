@@ -32,13 +32,17 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 st.title("🩺 Klinik Doküman & Hemşire Asistanı")
 st.caption("Sağlık protokolleri, kılavuzlar ve prosedür dokümanları üzerinden akıllı bilgi erişim sistemi (RAG).")
 
-# API Key'i Hugging Face Secrets üzerinden alıyoruz
-active_key = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
+# Önce Render ortam değişkenini kontrol et, yoksa Streamlit secrets dene
+active_key = os.getenv("GOOGLE_API_KEY")
+if not active_key:
+    try:
+        active_key = st.secrets.get("GOOGLE_API_KEY", "")
+    except Exception:
+        active_key = ""
 
 if not active_key:
-    st.warning("⚠️ Lütfen Hugging Face ortam ayarlarından (Secrets) geçerli bir `GOOGLE_API_KEY` tanımlayınız.")
+    st.warning("⚠️ Lütfen Render Environment Variables veya Streamlit Secrets ayarlarından geçerli bir `GOOGLE_API_KEY` tanımlayınız.")
     st.stop()
-
 client = genai.Client(api_key=active_key)
 
 # Akıllı RAG: Dokümanları okuma, parçalama (chunking) ve indeksleme
