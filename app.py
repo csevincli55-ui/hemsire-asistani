@@ -1,4 +1,5 @@
 import os
+import time
 import streamlit as st
 from google import genai
 
@@ -73,8 +74,12 @@ else:
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            try:
-                full_prompt = f"""Sen profesyonel bir klinik hemşire asistanısın. Aşağıda sağlanan klinik dokümanlardaki bilgilere dayanarak kullanıcının sorusunu net, doğru ve detaylı bir şekilde yanıtla. 
+            response_text = None
+            max_retries = 3  # Sunucu yoğunluğunda en fazla 3 kez tekrar dene
+            
+            for attempt in range(max_retries):
+                try:
+                    full_prompt = f"""Sen profesyonel bir klinik hemşire asistanısın. Aşağıda sağlanan klinik dokümanlardaki bilgilere dayanarak kullanıcının sorusunu net, doğru ve detaylı bir şekilde yanıtla. 
 
 Klinik Dokümanlar:
 {document_corpus}
@@ -82,29 +87,36 @@ Klinik Dokümanlar:
 Kullanıcı Sorusu: {prompt}
 Yanıt:"""
 
-                response = client.models.generate_content_stream(
-                    model='gemini-2.5-flash',
-                    contents=full_prompt,
-                )
-                
-                response_text = st.write_stream(chunk.text for chunk in response)
-                
-                # Her cevabın altında görünecek yıldızlı uyarı
+                    # Ana model denemesi
+                    response = client.models.generate_content_stream(
+                        model='gemini-2.5-flash',
+                        contents=full_prompt,
+                    )
+                    
+                    response_text = st.write_stream(chunk.text for chunk in response)
+                    break  # Başarılı olursa döngüden çık
+                    
+                except Exception as e:
+                    # Eğer hata alınırsa ve deneme hakkı bitmediyse 2 saniye bekleyip tekrar dene
+                    if attempt < max_retries - 1:
+                        time.sleep(2)
+                        continue
+                    else:
+                        # Son denemede alternatif modeli dene
+                        try:
+                            response = client.models.generate_content_stream(
+                                model='gemini-3.6-flash',
+                                contents=full_prompt,
+                            )
+                            response_text = st.write_stream(chunk.text for chunk in response)
+                            break
+                        except Exception as err:
+                            st.error(f"Sunucu yoğunluğu geçici olarak aşılamadı, lütfen birkaç saniye sonra tekrar deneyin. (Hata: {err})")
+
+            # Eğer yanıt başarıyla alındıysa yıldızlı uyarıyı ekle ve mesaja kaydet
+            if response_text:
                 disclaimer = "\n\n⭐ **Uyarı:** *Bu asistan tarafından sağlanan yanıtlar yalnızca bilgilendirme amaçlıdır; klinik kararlar ve hasta bakımı için mutlaka resmi hastane protokollerine ve uzman hekim görüşüne başvurulmalıdır.*"
                 st.markdown(disclaimer)
                 
                 full_message = str(response_text) + disclaimer
                 st.session_state.messages.append({"role": "assistant", "content": full_message})
-            except Exception as e:
-                try:
-                    response = client.models.generate_content_stream(
-                        model='gemini-3.6-flash',
-                        contents=full_prompt,
-                    )
-                    response_text = st.write_stream(chunk.text for chunk in response)
-                    disclaimer = "\n\n⭐ **Uyarı:** *Bu asistan tarafından sağlanan yanıtlar yalnızca bilgilendirme amaçlıdır; klinik kararlar ve hasta bakımı için mutlaka resmi hastane protokollerine ve uzman hekim görüşüne başvurulmalıdır.*"
-                    st.markdown(disclaimer)
-                    full_message = str(response_text) + disclaimer
-                    st.session_state.messages.append({"role": "assistant", "content": full_message})
-                except Exception as err:
-                    st.error(f"Yanıt oluşturulurken bir hata oluştu: {err}")
